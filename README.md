@@ -42,7 +42,7 @@ class PolicyConfig():
     activation: torch.nn.Module = torch.nn.ReLU
 
 class ReinforcementLearning():
-    def __init__(self, config: Optional[Config] = default_config):
+    def __init__(self, config: Config = default_config):
         self.config = config
         print(self.config)
 ```
@@ -69,7 +69,7 @@ class UserEnvironmentConfig():
 
 @user_config.inherit(default_config.policy)
 class UserPolicyConfig():
-    env = gym.make(user_config.environment.env_id)
+    env = gym.make(user_config.environment.env_id)  # Not registered
     input_size = env.observation_space.shape[0]
     hidden_layers = field(default_factory=lambda: [64, 32])
     if isinstance(env.action_space, gym.spaces.Discrete):
@@ -82,7 +82,7 @@ class UserPolicyConfig():
 ReinforcementLearning(user_config)
 ```
 
-- *Note*: If a config is not inherited, typing is necessary but putting the correct type is not necessary. `'typing.Any'` can be used if you don't want to bother with typing but they are important if you are using static type checking tool such as `mypy`.
+- *Note*: If a config is not inherited, `typing` is necessary. Also, if you are adding your own variable to the inherited config and want it to be register, you need to specify the type. Putting the correct type is not necessary. `'typing.Any'` can be used if you don't want to bother with `typing` but they are important if you are using a static type checking tool such as `mypy`.
 
 ## Accessing Variables
 ```python
