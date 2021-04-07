@@ -49,10 +49,7 @@ class Config(dict):
     def __getattr__(self, key):
         try:
             value = self[key]
-            if isinstance(value, Config):
-                return self.check_config(value)
-            else:
-                return self.check_value(key, value)
+            return self.check_value(key, value)
         except KeyError:
             raise AttributeError(key)
 
@@ -74,11 +71,10 @@ class Config(dict):
                         if member in _annotations:
                             annotations[member] = _annotations[member]
                     wrapped_class.__annotations__ = annotations
-                config_class = type(wrapped_class.__name__,
-                        (Config,), dict(wrapped_class.__dict__))
+                config_class = type(wrapped_class.__name__, (Config,), dict(wrapped_class.__dict__))
                 config_class.__name = _name
                 self[_name] = dataclass(config_class)()
-                return config_class
+                return self[_name]
             else:
                 raise AttributeError(f'"{name}" is already added for class "{self[name].__class__.__name__}"')
         return _add
@@ -86,7 +82,9 @@ class Config(dict):
     def inherit(self, cls):
         def _inherit(wrapped_class):
             config_class = type(wrapped_class.__name__, (cls.__class__,), dict(wrapped_class.__dict__))
-            return self.add()(config_class)
+            data_class = self.add()(config_class)
+            self[data_class.__name] = cls.update(self[data_class.__name])
+            return self[data_class.__name]
         return _inherit
 
     def __call__(self, name=None):

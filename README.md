@@ -42,12 +42,8 @@ class PolicyConfig():
     activation: torch.nn.Module = torch.nn.ReLU
 
 class ReinforcementLearning():
-    def __init__(self, config: Optional[Config] = None):
-        if config is not None:
-            self.config = default_config.update(config)
-        else:
-            self.config = config
-        ...
+    def __init__(self, config: Optional[Config] = default_config):
+        self.config = config
         print(self.config)
 ```
 
