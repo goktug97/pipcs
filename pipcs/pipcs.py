@@ -38,7 +38,7 @@ class Config(dict):
             else:
                 return value.default
         elif value is Required:
-            raise RequiredError
+            raise RequiredError(f'{key} is required!')
         else:
             return value
 

@@ -8,7 +8,7 @@ with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='pipcs',
-      version=f'0.0.1',
+      version=f'0.0.2',
       description='pipcs is python configuration system',
       author='Göktuğ Karakaşlı',
       author_email='karakasligk@gmail.com',
