@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, asdict
 from collections import defaultdict, abc
+from typing import Union, Type, TypeVar, Generic, List
 
 
 class InvalidChoiceError(Exception):
@@ -8,15 +9,18 @@ class InvalidChoiceError(Exception):
 class RequiredError(Exception):
     pass
 
-Required = object()
+T = TypeVar('T')
+class required: ...
+Required = Union[Type[required], T]
 
-class Choices():
-    def __init__(self, choices, default=Required):
-        if default is not Required:
+
+class Choices(Generic[T]):
+    def __init__(self, choices, default=required):
+        if default is not required:
             if default not in choices:
                 raise InvalidChoiceError('Default value is not in choices')
-        self.choices = choices
-        self.default = default
+        self.choices: List[T] = choices
+        self.default: Required[T] = default
 
 class Config(dict):
     def __init__(self, dictionary={}):
@@ -26,18 +30,18 @@ class Config(dict):
     def check_config(self, config):
         for k, v in config.items():
             if isinstance(v, Config):
-                self.check_config(v)
+                return self.check_config(v)
             else:
-                self.check_value(k, v)
+                return self.check_value(k, v)
 
     @staticmethod
     def check_value(key, value):
         if isinstance(value, Choices):
-            if value.default is Required:
+            if value.default is required:
                 raise RequiredError(f'{key} is required!')
             else:
                 return value.default
-        elif value is Required:
+        elif value is required:
             raise RequiredError(f'{key} is required!')
         else:
             return value
@@ -45,7 +49,10 @@ class Config(dict):
     def __getattr__(self, key):
         try:
             value = self[key]
-            return self.check_value(key, value)
+            if isinstance(value, Config):
+                return self.check_config(value)
+            else:
+                return self.check_value(key, value)
         except KeyError:
             raise AttributeError(key)
 
@@ -78,8 +85,7 @@ class Config(dict):
 
     def inherit(self, cls):
         def _inherit(wrapped_class):
-            config_class = type(wrapped_class.__name__,
-                    (cls.__class__,), dict(wrapped_class.__dict__))
+            config_class = type(wrapped_class.__name__, (cls.__class__,), dict(wrapped_class.__dict__))
             return self.add()(config_class)
         return _inherit
 

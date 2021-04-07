@@ -20,25 +20,25 @@ import torch
 import numpy as np
 import gym
 
-from pipcs import Config, Choices, Required
+from pipcs import Config, Choices, Required, required
 
 default_config = Config()
 
 @default_config.add('optimizer')
 class OptimizerConfig():
-    optim_type: Type[torch.optim.Optimizer] = Choices([torch.optim.Adam, torch.optim.SGD])
+    optim_type: Choices[Type[torch.optim.Optimizer]] = Choices([torch.optim.Adam, torch.optim.SGD])
     lr: float = 0.001
 
 @default_config.add('environment')
 class EnvironmentConfig():
-    env_id: str = Required
+    env_id: Required[str] = required
 
 @default_config.add('policy')
 class PolicyConfig():
-    input_size: int = Required
+    input_size: Required[int] = required
     hidden_layers: List[int] = field(default_factory=lambda: [])
-    output_size: int = Required
-    output_func: Callable[[torch.Tensor], Union[int, np.ndarray]] = Required
+    output_size: Required[int] = required
+    output_func: Required[Callable[[torch.Tensor], Union[int, np.ndarray]]] = required
     activation: torch.nn.Module = torch.nn.ReLU
 
 class ReinforcementLearning():
@@ -69,7 +69,7 @@ class UserOptimizerConfig():
 
 @user_config.inherit(default_config.environment)
 class UserEnvironmentConfig():
-    env_id: str = 'CartPole-v1'
+    env_id = 'CartPole-v1'
 
 @user_config.inherit(default_config.policy)
 class UserPolicyConfig():
@@ -85,6 +85,8 @@ class UserPolicyConfig():
 
 ReinforcementLearning(user_config)
 ```
+
+- *Note*: If a config is not inherited, typing is necessary but putting the correct type is not necessary. `'typing.Any'` can be used if you don't want to bother with typing but they are important if you are using static type checking tool such as `mypy`.
 
 ## Accessing Variables
 ```python
