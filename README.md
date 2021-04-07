@@ -85,3 +85,22 @@ class UserPolicyConfig():
 
 ReinforcementLearning(user_config)
 ```
+
+## Accessing Variables
+```python
+>>> from pipcs import Config
+>>> 
+>>> config = Config()
+>>> 
+>>> @config.add('configuration')
+... class Foo():
+...     bar: str = 'bar'
+...     baz: int = 1
+... 
+>>> print(config.configuration.bar)
+bar
+>>> print(config.configuration.baz)
+1
+>>> print(config['configuration']['bar'])
+bar
+```
