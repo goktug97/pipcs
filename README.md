@@ -24,16 +24,16 @@ from pipcs import Config, Choices, Required, required
 
 default_config = Config()
 
-@default_config.add('optimizer')
+@default_config('optimizer')
 class OptimizerConfig():
     optim_type: Choices[Type[torch.optim.Optimizer]] = Choices([torch.optim.Adam, torch.optim.SGD])
     lr: float = 0.001
 
-@default_config.add('environment')
+@default_config('environment')
 class EnvironmentConfig():
     env_id: Required[str] = required
 
-@default_config.add('policy')
+@default_config('policy')
 class PolicyConfig():
     input_size: Required[int] = required
     hidden_layers: List[int] = field(default_factory=lambda: [])
@@ -41,10 +41,25 @@ class PolicyConfig():
     output_func: Required[Callable[[torch.Tensor], Union[int, np.ndarray]]] = required
     activation: torch.nn.Module = torch.nn.ReLU
 
+class Policy(torch.nn.Module):
+    def __init__(self, input_size, hidden_layers, output_size, activation, output_func):
+        super().__init__()
+        self.seq = torch.nn.Sequential(
+            torch.nn.Linear(input_size, 64),
+            activation(),
+            torch.nn.Linear(64, 64),
+            activation(),
+            torch.nn.Linear(64, output_size))
+
 class ReinforcementLearning():
-    def __init__(self, config: Config = default_config):
+    def __init__(self, config: Optional[Config] = default_config):
         self.config = config
-        print(self.config)
+        self.policy = Policy(**config.policy.to_dict())
+        self.optim = self.make_optimizer(parameters=self.policy.parameters(), **config.optimizer.to_dict())
+        self.env = gym.make(config.environment.env_id)
+
+    def make_optimizer(self, optim_type, parameters, **kwargs):
+        return optim_type(parameters, **kwargs)
 ```
 
 - In user file:
@@ -57,19 +72,19 @@ from dataclasses import field
 
 from some_program import default_config, ReinforcementLearning
 
-user_config = Config()
+user_config = Config(default_config)
 
-@user_config.inherit(default_config.optimizer)
+@user_config('optimizer')
 class UserOptimizerConfig():
     optim_type = torch.optim.Adam
 
-@user_config.inherit(default_config.environment)
+@user_config('environment')
 class UserEnvironmentConfig():
     env_id = 'CartPole-v1'
 
-@user_config.inherit(default_config.policy)
+@user_config('policy')
 class UserPolicyConfig():
-    env = gym.make(user_config.environment.env_id)  # Not registered
+    env = gym.make(user_config.environment.env_id)
     input_size = env.observation_space.shape[0]
     hidden_layers = field(default_factory=lambda: [64, 32])
     if isinstance(env.action_space, gym.spaces.Discrete):
