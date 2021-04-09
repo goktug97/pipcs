@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field, asdict
-from collections import defaultdict, abc
+from dataclasses import dataclass
+from collections import abc
 from typing import Union, Type, TypeVar, Generic, List
 
 
@@ -24,40 +24,50 @@ class Choices(Generic[T]):
 class Config(dict):
     def __init__(self, dictionary={}):
         if isinstance(dictionary, Config):
-            self.__name = dictionary.__name
+            self._name = dictionary._name
         else:
-            self.__name = None
+            self._name = None
         super(Config, self).__init__(dictionary)
 
-    def check_config(self, config):
-        for k, v in config.items():
+    def check_config(self):
+        for k, v in self.items():
             if isinstance(v, Config):
-                self.check_config(v)
+                v.check_config()
             else:
                 self.check_value(k, v)
 
-    def check_value(self, key, value):
+    @staticmethod
+    def check_value(key, value):
         if isinstance(value, Config):
-            self.check_config(value)
+            value.check_config()
         elif isinstance(value, Choices):
             if value.default is required:
                 raise RequiredError(f'{key} is required!')
         elif value is required:
             raise RequiredError(f'{key} is required!')
 
-    def __getattr__(self, key):
+    def get_config(self, key, check=False):
         value = self[key]
-        self.check_value(key, value)
+        if check:
+            check_value = object.__getattribute__(self, 'check_value')
+            check_value(key, value)
         return value
 
-    def to_dict(self):
-        self.check_config(self)
+    def __getattr__(self, key):
+        try:
+            return self.get_config(key)
+        except KeyError:
+            raise AttributeError(key)
+
+    def to_dict(self, check=False):
+        if check:
+            self.check_config()
         config_dict = {}
         for k, v in self.items():
-            if k == '_Config__name':
+            if k == '_name' or k == '__annotations__':
                 continue
             if isinstance(v, Config):
-                config_dict[k] = v.to_dict()
+                config_dict[k] = v.to_dict(check)
             elif isinstance(v, Choices):
                 config_dict[k] = v.default
             else:
@@ -69,32 +79,35 @@ class Config(dict):
 
     def add_config(self, cls, name=None):
         if self.get(name):
-            parent = self.get(name)
-            config_class = type(cls.__name__, (parent.__class__,), dict(cls.__dict__))
-            data_class = self.add_config(config_class)
-            merged_config = parent.update(self[data_class.__name])
-            self.check_config(merged_config)
-            self[data_class.__name] = merged_config
-            return self[data_class.__name]
-
-        parent = cls.__bases__[0]
-        if hasattr(parent, '__annotations__') and issubclass(parent, Config):
-            members = [var for var in vars(cls) if not var.startswith('__')]
-            _annotations = {**parent.__annotations__, **cls.__annotations__}
             if name is None:
-                name = parent.__name
+                raise ValueError
+            parent = self.get(name)
+            config_class = type(cls.__name__, (Config,), dict(cls.__dict__))
+            members = [var for var in vars(config_class) if not var.startswith('__')]
+            if hasattr(config_class, '__annotations__'):
+                _annotations = {**parent.__annotations__, **config_class.__annotations__}
+            else:
+                _annotations = parent.__annotations__
+            if name is None:
+                name = parent._name
             annotations = {}
             for member in members:
                 if member in _annotations:
                     annotations[member] = _annotations[member]
-            cls.__annotations__ = annotations
-            cls.__name = name
-            datacls = dataclass(cls)()
+            config_class.__annotations__ = annotations
+            config_class._name = name
+            datacls = dataclass(config_class)()
+            datacls.__annotations__ = config_class.__annotations__
+            merged_config = parent.update(Config(datacls))
+            merged_config.check_config()
+            self[name] = merged_config
         else:
             config_class = type(cls.__name__, (Config,), dict(cls.__dict__))
-            config_class.__name = name
+            config_class._name = name
             datacls = dataclass(config_class)()
-        self[name] = datacls
+            datacls.__annotations__ = config_class.__annotations__
+            datacls = Config(datacls)
+            self[name] = datacls
         return self[name]
 
     def add(self, name=None):
@@ -109,22 +122,25 @@ class Config(dict):
         newdict = dict(self)
         for k, v in other.items():
             if not hasattr(self, k):
-                newdict[k] = v
+                if isinstance(v, Choices):
+                    newdict[k] = v.default
+                else:
+                    newdict[k] = v
             else:
                 if isinstance(self[k], Config):
                     newdict[k] = self[k].update(v)
                 elif isinstance(self[k], abc.Mapping):
                     newdict[k] = {**self[k], **v}
+                elif isinstance(v, Choices):
+                    if self[k].default is required:
+                        raise RequiredError(f'{k} is required, valid choices: {self[k].choices}')
+                    else:
+                        newdict[k] = self[k].default
                 elif isinstance(self[k], Choices):
                     if v not in self[k].choices:
-                        if self[k].default is not required:
-                            print(f'Warning: {k} is invalid, using default value {self[k].default}, valid choices: {self[k].choices}')
-                            newdict[k] = self[k].default
-                            continue
-                        raise InvalidChoiceError(f'Valid choices: {self[k].choices}')
+                        raise InvalidChoiceError(f'{v} is not valid for {k}, valid choices: {self[k].choices}')
                     else:
                         newdict[k] = v
                 else:
                     newdict[k] = v
-        config = Config(newdict)
-        return config
+        return Config(newdict)
