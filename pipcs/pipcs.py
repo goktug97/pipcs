@@ -9,9 +9,29 @@ class InvalidChoiceError(Exception):
 class RequiredError(Exception):
     pass
 
+class ConditionError(Exception):
+    pass
+
 T = TypeVar('T')
 class required: ...
 Required = Union[Type[required], T]
+
+class Condition(Generic[T]):
+    def __init__(self, value: T, comp):
+        self.value: T = value
+        self.comp = comp
+
+    def compare(self, config):
+        return self.comp(config)
+
+    def __and__(self, other):
+        return Condition(self.value, lambda config: self.comp(config) and other.comp(config))
+
+    def __or__(self, other):
+        return Condition(self.value, lambda config: self.comp(config) or other.comp(config))
+
+    def __invert__(self):
+        return Condition(self.value, lambda config: not self.comp(config))
 
 class Choices(Generic[T]):
     def __init__(self, choices, default=required):
@@ -20,6 +40,31 @@ class Choices(Generic[T]):
                 raise InvalidChoiceError('Default value is not in choices')
         self.choices: List[T] = choices
         self.default: Required[T] = default
+
+    def __get_value(self, config):
+        value = config.get_config(self._name)
+        if isinstance(value, Choices):
+            return self.default
+        else:
+            return value
+
+    def __eq__(self, other):
+        return lambda config: self.__get_value(config) == other
+
+    def __lt__(self, other):
+        return lambda config: self.__get_value(config) < other
+
+    def __le__(self, other):
+        return lambda config: self.__get_value(config) <= other
+
+    def __ne__(self, other):
+        return lambda config: self.__get_value(config) != other
+
+    def __gt__(self, other):
+        return lambda config: self.__get_value(config) > other
+
+    def __ge__(self, other):
+        return lambda config: self.__get_value(config) >= other
 
 class Config(dict):
     def __init__(self, dictionary={}):
@@ -47,11 +92,17 @@ class Config(dict):
             raise RequiredError(f'{key} is required!')
 
     def get_config(self, key, check=False):
-        value = self[key]
+        value = dict.__getitem__(self, key)
+        if isinstance(value, Condition):
+            if value.compare(self):
+                return value.value
         if check:
             check_value = object.__getattribute__(self, 'check_value')
             check_value(key, value)
         return value
+
+    def __getitem__(self, key):
+        return self.get_config(key)
 
     def __getattr__(self, key):
         try:
@@ -70,6 +121,9 @@ class Config(dict):
                 config_dict[k] = v.to_dict(check)
             elif isinstance(v, Choices):
                 config_dict[k] = v.default
+            elif isinstance(v, Condition):
+                if v.compare(self):
+                    config_dict[k] = v.value
             else:
                 config_dict[k] = v
         return config_dict
@@ -108,6 +162,9 @@ class Config(dict):
             datacls.__annotations__ = config_class.__annotations__
             datacls = Config(datacls)
             self[name] = datacls
+        for k, v in self[name].items():
+            if isinstance(v, Choices):
+                v._name = k
         return self[name]
 
     def add(self, name=None):
@@ -131,6 +188,9 @@ class Config(dict):
                     newdict[k] = self[k].update(v)
                 elif isinstance(self[k], abc.Mapping):
                     newdict[k] = {**self[k], **v}
+                elif isinstance(self[k], Condition):
+                    if self[k].compare(other):
+                        newdict[k] = v
                 elif isinstance(v, Choices):
                     if self[k].default is required:
                         raise RequiredError(f'{k} is required, valid choices: {self[k].choices}')

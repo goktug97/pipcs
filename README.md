@@ -26,8 +26,13 @@ default_config = Config()
 
 @default_config('optimizer')
 class OptimizerConfig():
-    optim_type: Choices[Type[torch.optim.Optimizer]] = Choices([torch.optim.Adam, torch.optim.SGD])
+    optim_type: Choices[Type[torch.optim.Optimizer]] = Choices([torch.optim.Adam, torch.optim.SGD], default=torch.optim.Adam)
+    weight_decay: float = 0.0
     lr: float = 0.001
+    betas: Condition[Tuple[float, float]] = Condition((0.9, 0.999), optim_type == torch.optim.Adam)
+    eps: Condition[float] = Condition(1e-08, optim_type == torch.optim.Adam)
+    momentum: Condition[float] = Condition(0.0, optim_type == torch.optim.SGD)
+    dampening: Condition[float] = Condition(0.0, optim_type == torch.optim.SGD)
 
 @default_config('environment')
 class EnvironmentConfig():
@@ -64,7 +69,7 @@ class ReinforcementLearning():
 
 - In user file:
 ```python
-from pipcs import Config
+from pipcs import Config, Condition
 
 import gym
 import torch
@@ -77,6 +82,8 @@ user_config = Config(default_config)
 @user_config('optimizer')
 class UserOptimizerConfig():
     optim_type = torch.optim.Adam
+    amsgrad: Condition[bool] = Condition(False, default_config.optimizer.optim_type == torch.optim.Adam)
+    nesterov: Condition[bool] = Condition(False, default_config.optimizer.optim_type == torch.optim.SGD)
 
 @user_config('environment')
 class UserEnvironmentConfig():
