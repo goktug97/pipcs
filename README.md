@@ -20,7 +20,7 @@ import torch
 import numpy as np
 import gym
 
-from pipcs import Config, Choices, Required, required
+from pipcs import Config, Choices, Condition, Required, required
 
 default_config = Config()
 
