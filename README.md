@@ -9,6 +9,9 @@ pipcs is an experimental library to create configuration files for Python.
 pip install pipcs --user
 ```
 
+# Documentation
+https://pipcs.readthedocs.io/
+
 # Example Scenario
 
 - In some_program.py:

@@ -9,7 +9,7 @@ class InvalidChoiceError(Exception):
 
 
 class RequiredError(Exception):
-    """It is raised if a user doesn't set :class:`pipcs.required` variable in the inherited config. It is also raised if a :class:`pipcs.required` variable is not set during :meth:`pipcs.Config.check_config`.
+    """Raised if a user doesn't set :class:`pipcs.required` variable in the inherited config. It is also raised if a :class:`pipcs.required` variable is not set during :meth:`pipcs.Config.check_config`.
     """
     pass
 
