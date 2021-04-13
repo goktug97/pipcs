@@ -43,6 +43,7 @@ class Condition(Generic[T]):
             variable: Choices[int] = Choices([1, 2, 3])
             conditional_variable: Condition[int] = Condition(5, variable==2)
 
+        # Example 1
         user_config = Config(config)
 
         @user_config('example')
@@ -52,11 +53,24 @@ class Condition(Generic[T]):
         print(user_config.example.to_dict())
         # {'variable': 2, 'conditional_variable': 5}
 
+        # Example 2
+        user_config = Config(config)
+
+        @user_config('example')
+        class UserExample():
+            variable = 2
+            conditional_variable = 1
+
+        print(user_config.example.to_dict())
+        # {'variable': 2, 'conditional_variable': 1}
+
+        # Example 3
         user_config = Config(config)
 
         @user_config('example')
         class UserExample():
             variable = 1
+            conditional_variable = 2
 
         print(user_config.example.to_dict())
         # {'variable': 1}
