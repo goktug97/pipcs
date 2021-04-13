@@ -85,6 +85,7 @@ user_config = Config(default_config)
 @user_config('optimizer')
 class UserOptimizerConfig():
     optim_type = torch.optim.Adam
+    # Users can add their own variables too
     amsgrad: Condition[bool] = Condition(False, default_config.optimizer.optim_type == torch.optim.Adam)
     nesterov: Condition[bool] = Condition(False, default_config.optimizer.optim_type == torch.optim.SGD)
 
