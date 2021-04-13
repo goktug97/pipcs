@@ -14,7 +14,7 @@ pip install pipcs --user
 - In some_program.py:
 ```python
 from dataclasses import field
-from typing import Dict, Type, Callable, Union, List, Optional
+from typing import Dict, Type, Callable, Union, List
 
 import torch
 import numpy as np
@@ -57,7 +57,7 @@ class Policy(torch.nn.Module):
             torch.nn.Linear(64, output_size))
 
 class ReinforcementLearning():
-    def __init__(self, config: Optional[Config] = default_config):
+    def __init__(self, config: Config = default_config):
         self.config = config
         self.policy = Policy(**config.policy.to_dict())
         self.optim = self.make_optimizer(parameters=self.policy.parameters(), **config.optimizer.to_dict())
