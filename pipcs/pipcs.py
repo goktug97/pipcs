@@ -26,7 +26,7 @@ Required = Union[Type[required], T]
 
 
 class Condition(Generic[T]):
-    """To mark a variable as only valid if the condition is hold. It is used combined with :class:`pipcs.Choices`.
+    """Mark a variable as valid, only if the condition is hold. It is used combined with :class:`pipcs.Choices`.
 
     Args:
         value (T): Value of the variable.
@@ -93,7 +93,7 @@ class Condition(Generic[T]):
 
 
 class Choices(Generic[T]):
-    """A class to specify valid choices for the configuration variable. :class:`pipcs.InvalidChoiceError` error will be raised when the user tries to set the variable to a non-valid choice in the inherited configuration.
+    """Specify valid choices for a variable. :class:`pipcs.InvalidChoiceError` error will be raised when the user tries to set the variable to a non-valid choice in the inherited configuration.
 
     Args:
         choices (List[T]): Valid choices for the configuration variable.
