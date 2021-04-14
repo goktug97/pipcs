@@ -9,7 +9,9 @@ class InvalidChoiceError(Exception):
 
 
 class RequiredError(Exception):
-    """Raised if a user doesn't set :class:`pipcs.required` variable in the inherited config. It is also raised if a :class:`pipcs.required` variable is not set during :meth:`pipcs.Config.check_config`.
+    """Raised if a user doesn't set :class:`pipcs.required` variable
+       in the inherited config. It is also raised if a :class:`pipcs.required`
+       variable is not set during :meth:`pipcs.Config.check_config`.
     """
     pass
 
@@ -19,9 +21,13 @@ class ConditionError(Exception):
 
 
 T = TypeVar('T')
+
+
 class required:
     """Mark a variable as required."""
     pass
+
+
 Required = Union[Type[required], T]
 
 
@@ -93,7 +99,9 @@ class Condition(Generic[T]):
 
 
 class Choices(Generic[T]):
-    """Specify valid choices for a variable. :class:`pipcs.InvalidChoiceError` error will be raised when the user tries to set the variable to a non-valid choice in the inherited configuration.
+    """Specify valid choices for a variable.
+       :class:`pipcs.InvalidChoiceError` error will be raised when the user
+        tries to set the variable to a non-valid choice in the inherited configuration.
 
     Args:
         choices (List[T]): Valid choices for the configuration variable.
@@ -195,13 +203,16 @@ class Config(dict):
             else:
                 self.check_value(k, v)
 
-    @staticmethod
-    def check_value(key, value):
+    def check_value(self, key, value):
         if isinstance(value, Config):
             value.check_config()
         elif isinstance(value, Choices):
             if value.default is required:
                 raise RequiredError(f'{key} is required!')
+        elif isinstance(value, Condition):
+            if value._compare(self):
+                if value.value is required:
+                    raise RequiredError(f'{key} is required!')
         elif value is required:
             raise RequiredError(f'{key} is required!')
 
@@ -276,19 +287,15 @@ class Config(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
-    def add_config(self, cls, name=None):
+    def add_config(self, cls, name, check=True):
         if self.get(name):
-            if name is None:
-                raise ValueError
-            parent = self.get(name)
+            parent = self.get_value(name)
             config_class = type(cls.__name__, (Config,), dict(cls.__dict__))
             members = [var for var in vars(config_class) if not var.startswith('__')]
             if hasattr(config_class, '__annotations__'):
                 _annotations = {**parent.__annotations__, **config_class.__annotations__}
             else:
                 _annotations = parent.__annotations__
-            if name is None:
-                name = parent._name
             annotations = {}
             for member in members:
                 if member in _annotations:
@@ -297,8 +304,9 @@ class Config(dict):
             config_class._name = name
             datacls = dataclass(config_class)()
             datacls.__annotations__ = config_class.__annotations__
-            merged_config = parent.update(Config(datacls))
-            merged_config.check_config()
+            merged_config = parent.update_config(Config(datacls))
+            if check:
+                merged_config.check_config()
             self[name] = merged_config
         else:
             config_class = type(cls.__name__, (Config,), dict(cls.__dict__))
@@ -312,40 +320,32 @@ class Config(dict):
                 v._name = k
         return self[name]
 
-    def add(self, name=None):
+    def add(self, name, check=True):
         def _add(wrapped_class):
-            return self.add_config(wrapped_class, name)
+            return self.add_config(wrapped_class, name, check)
         return _add
 
-    def __call__(self, name=None):
+    def __call__(self, name):
         return self.add(name)
 
-    def update(self, other):
-        newdict = dict(self)
+    def update_config(self, other):
+        newdict = Config(self)
         for k, v in other.items():
-            if not hasattr(self, k):
-                if isinstance(v, Choices):
-                    newdict[k] = v.default
-                else:
-                    newdict[k] = v
-            else:
+            newdict[k] = v
+            if hasattr(self, k):
                 if isinstance(self[k], Config):
-                    newdict[k] = self[k].update(v)
+                    newdict[k] = self[k].update_config(v)
                 elif isinstance(self[k], abc.Mapping):
                     newdict[k] = {**self[k], **v}
-                elif isinstance(self[k], Condition):
-                    if self[k]._compare(other):
-                        newdict[k] = v
-                elif isinstance(v, Choices):
-                    if self[k].default is required:
-                        raise RequiredError(f'{k} is required, valid choices: {self[k].choices}')
-                    else:
-                        newdict[k] = self[k].default
                 elif isinstance(self[k], Choices):
                     if v not in self[k].choices:
                         raise InvalidChoiceError(f'{v} is not valid for {k}, valid choices: {self[k].choices}')
-                    else:
-                        newdict[k] = v
-                else:
-                    newdict[k] = v
-        return Config(newdict)
+
+        def update_choices(a, b):
+            for k, v in a.items():
+                if isinstance(v, Config):
+                    update_choices(v, b[k])
+                elif isinstance(b[k], Choices):
+                    b[k] = v.default
+        update_choices(self, newdict)
+        return newdict
