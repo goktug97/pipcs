@@ -1,5 +1,6 @@
 PIPCS: PIPCS is Python Configuration System
 -------------------------------------------
+![Test](https://github.com/goktug97/pipcs/actions/workflows/python-package.yml/badge.svg)
 
 pipcs is an experimental library to create configuration files for Python.
 
