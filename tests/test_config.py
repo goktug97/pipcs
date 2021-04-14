@@ -189,6 +189,7 @@ class TestRequired(unittest.TestCase):
         self.assertEqual(self.config.test.required_variable, required)
         self.assertEqual(config['test']['required_variable'], required)
 
+
 class TestConfig(unittest.TestCase):
     def setUp(self):
         self.config = Config()

@@ -328,6 +328,13 @@ class Config(dict):
     def __call__(self, name):
         return self.add(name)
 
+    def _update_choices(self, other):
+        for k, v in other.items():
+            if isinstance(v, Config):
+                self[k]._update_choices(v)
+            elif isinstance(self[k], Choices):
+                self[k] = v.default
+
     def update_config(self, other):
         newdict = Config(self)
         for k, v in other.items():
@@ -341,11 +348,5 @@ class Config(dict):
                     if v not in self[k].choices:
                         raise InvalidChoiceError(f'{v} is not valid for {k}, valid choices: {self[k].choices}')
 
-        def update_choices(a, b):
-            for k, v in a.items():
-                if isinstance(v, Config):
-                    update_choices(v, b[k])
-                elif isinstance(b[k], Choices):
-                    b[k] = v.default
-        update_choices(self, newdict)
+        newdict._update_choices(self)
         return newdict
