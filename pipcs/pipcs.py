@@ -1,3 +1,5 @@
+import os
+import types
 from dataclasses import dataclass
 from collections import abc
 from typing import Union, Type, TypeVar, Generic, List
@@ -336,8 +338,8 @@ class Config(dict):
             return self.add_config(wrapped_class, name, check)
         return _add
 
-    def __call__(self, name):
-        return self.add(name)
+    def __call__(self, name, check=True):
+        return self.add(name, check)
 
     def _update_choices(self, other):
         for k, v in other.items():
@@ -361,3 +363,24 @@ class Config(dict):
 
         newdict._update_choices(self)
         return newdict
+
+
+def read_config(config_file, config_name=None):
+    """Read a config from a file. Basically works as `import` but you can load files
+    from different locations by path.
+
+    Args:
+        config_file (str): File path
+        config_name (str): If given only the given attribute will be returned instead of whole module.
+    """
+    base = os.path.basename(config_file)
+    module = os.path.splitext(base)[0]
+    config = types.ModuleType(module, 'Config')
+    with open(config_file) as f:
+        code = f.read()
+        code = compile(code, module, "exec")
+        exec(code, config.__dict__)
+    if config_name is not None:
+        return getattr(config, config_name)
+    else:
+        return config
