@@ -61,9 +61,9 @@ class TestCondition(unittest.TestCase):
             conditional_variable1: Condition[Required[int]] = Condition(required, variable1 == 1)
             conditional_variable2: Condition[int] = Condition(1, variable1 == 2)
             conditional_variable3: Condition[Required[int]] = Condition(required, variable1 == 3)
-            conditional_variable4: Condition[int] = Condition(1, variable1 == 3) & Condition(1, variable2 == 1)
-            conditional_variable5: Condition[int] = Condition(1, variable1 == 3) | Condition(1, variable2 == 1)
-            conditional_variable6: Condition[int] = ~Condition(1, variable1 == 3)
+            conditional_variable4: Condition[int] = Condition(1, (variable1 == 3) & (variable2 == 1))
+            conditional_variable5: Condition[int] = Condition(1, (variable1 == 3) | (variable2 == 1))
+            conditional_variable6: Condition[int] = Condition(1, ~(variable1 == 3))
 
         self.user_config1 = Config(self.config)
         @self.user_config1('test')

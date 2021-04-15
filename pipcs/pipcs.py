@@ -31,6 +31,53 @@ class required:
 Required = Union[Type[required], T]
 
 
+class Comparison():
+    def __init__(self, comp):
+        self.comp = comp
+
+    def __and__(self, other):
+        return Comparison(lambda config: self.comp(config) and other.comp(config))
+
+    def __or__(self, other):
+        return Comparison(lambda config: self.comp(config) or other.comp(config))
+
+    def __invert__(self):
+        return Comparison(lambda config: not self.comp(config))
+
+    def __call__(self, config):
+        return self.comp(config)
+
+
+class Comparable():
+    def __init__(self, data):
+        self.data = data
+
+    def _get_value(self, config):
+        value = config.get_value(self._name)
+        if isinstance(value, Comparable):
+            return self.data
+        else:
+            return value
+
+    def __eq__(self, other):
+        return Comparison(lambda config: self._get_value(config) == other)
+
+    def __lt__(self, other):
+        return Comparison(lambda config: self._get_value(config) < other)
+
+    def __le__(self, other):
+        return Comparison(lambda config: self._get_value(config) <= other)
+
+    def __ne__(self, other):
+        return Comparison(lambda config: self._get_value(config) != other)
+
+    def __gt__(self, other):
+        return Comparison(lambda config: self._get_value(config) > other)
+
+    def __ge__(self, other):
+        return Comparison(lambda config: self._get_value(config) >= other)
+
+
 class Condition(Generic[T]):
     """Mark a variable as valid, only if the condition is hold. It is used combined with :class:`pipcs.Choices`.
 
@@ -81,24 +128,12 @@ class Condition(Generic[T]):
         print(user_config.example.to_dict())
         # {'variable': 1}
     """
-    def __init__(self, value: T, comp):
+    def __init__(self, value: T, comp: Comparison):
         self.value: T = value
         self.comp = comp
 
-    def _compare(self, config):
-        return self.comp(config)
 
-    def __and__(self, other):
-        return Condition(self.value, lambda config: self.comp(config) and other.comp(config))
-
-    def __or__(self, other):
-        return Condition(self.value, lambda config: self.comp(config) or other.comp(config))
-
-    def __invert__(self):
-        return Condition(self.value, lambda config: not self.comp(config))
-
-
-class Choices(Generic[T]):
+class Choices(Comparable, Generic[T]):
     """Specify valid choices for a variable.
        :class:`pipcs.InvalidChoiceError` error will be raised when the user
         tries to set the variable to a non-valid choice in the inherited configuration.
@@ -139,31 +174,7 @@ class Choices(Generic[T]):
                 raise InvalidChoiceError('Default value is not in choices')
         self.choices: List[T] = choices
         self.default: Required[T] = default
-
-    def __get_value(self, config):
-        value = config.get_value(self._name)
-        if isinstance(value, Choices):
-            return self.default
-        else:
-            return value
-
-    def __eq__(self, other):
-        return lambda config: self.__get_value(config) == other
-
-    def __lt__(self, other):
-        return lambda config: self.__get_value(config) < other
-
-    def __le__(self, other):
-        return lambda config: self.__get_value(config) <= other
-
-    def __ne__(self, other):
-        return lambda config: self.__get_value(config) != other
-
-    def __gt__(self, other):
-        return lambda config: self.__get_value(config) > other
-
-    def __ge__(self, other):
-        return lambda config: self.__get_value(config) >= other
+        super().__init__(self.default)
 
 
 class Config(dict):
@@ -210,7 +221,7 @@ class Config(dict):
             if value.default is required:
                 raise RequiredError(f'{key} is required!')
         elif isinstance(value, Condition):
-            if value._compare(self):
+            if value.comp(self):
                 if value.value is required:
                     raise RequiredError(f'{key} is required!')
         elif value is required:
@@ -241,7 +252,7 @@ class Config(dict):
         """
         value = dict.__getitem__(self, key)
         if isinstance(value, Condition):
-            if value._compare(self):
+            if value.comp(self):
                 return value.value
         if check:
             check_value = object.__getattribute__(self, 'check_value')
@@ -278,7 +289,7 @@ class Config(dict):
             elif isinstance(v, Choices):
                 config_dict[k] = v.default
             elif isinstance(v, Condition):
-                if v._compare(self):
+                if v.comp(self):
                     config_dict[k] = v.value
             else:
                 config_dict[k] = v
@@ -316,7 +327,7 @@ class Config(dict):
             datacls = Config(datacls)
             self[name] = datacls
         for k, v in self[name].items():
-            if isinstance(v, Choices):
+            if isinstance(v, Comparable):
                 v._name = k
         return self[name]
 
