@@ -13,6 +13,9 @@ pip install pipcs --user
 # Documentation
 https://pipcs.readthedocs.io/
 
+# Example
+https://github.com/goktug97/nes-torch/blob/master/nes/config.py
+
 # Example Scenario
 
 - In some_program.py:
