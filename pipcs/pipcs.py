@@ -84,7 +84,7 @@ class Condition(Generic[T]):
     """Mark a variable as valid, only if the condition is hold. It is used combined with :class:`pipcs.Choices`.
 
     Args:
-        value (T): Value of the variable.
+        data (T): Value of the variable.
         comp: Comparison function.
 
     .. code-block:: python
@@ -130,8 +130,8 @@ class Condition(Generic[T]):
         print(user_config.example.to_dict())
         # {'variable': 1}
     """
-    def __init__(self, value: T, comp: Comparison):
-        self.value: T = value
+    def __init__(self, data: T, comp: Comparison):
+        self.data: T = data
         self.comp = comp
 
 
@@ -175,8 +175,8 @@ class Choices(Comparable, Generic[T]):
             if default not in choices:
                 raise InvalidChoiceError('Default value is not in choices')
         self.choices: List[T] = choices
-        self.default: Required[T] = default
-        super().__init__(self.default)
+        self.data: Required[T] = default
+        super().__init__(self.data)
 
 
 class Config(dict):
@@ -220,11 +220,11 @@ class Config(dict):
         if isinstance(value, Config):
             value.check_config()
         elif isinstance(value, Choices):
-            if value.default is required:
+            if value.data is required:
                 raise RequiredError(f'{key} is required!')
         elif isinstance(value, Condition):
             if value.comp(self):
-                if value.value is required:
+                if value.data is required:
                     raise RequiredError(f'{key} is required!')
         elif value is required:
             raise RequiredError(f'{key} is required!')
@@ -253,9 +253,6 @@ class Config(dict):
             # pipcs.pipcs.RequiredError: variable is required!
         """
         value = dict.__getitem__(self, key)
-        if isinstance(value, Condition):
-            if value.comp(self):
-                return value.value
         if check:
             check_value = object.__getattribute__(self, 'check_value')
             check_value(key, value)
@@ -288,11 +285,11 @@ class Config(dict):
                 continue
             if isinstance(v, Config):
                 config_dict[k] = v.to_dict(check)
-            elif isinstance(v, Choices):
-                config_dict[k] = v.default
+            elif isinstance(v, Comparable):
+                config_dict[k] = v.data
             elif isinstance(v, Condition):
                 if v.comp(self):
-                    config_dict[k] = v.value
+                    config_dict[k] = v.data
             else:
                 config_dict[k] = v
         return config_dict
@@ -341,12 +338,12 @@ class Config(dict):
     def __call__(self, name, check=True):
         return self.add(name, check)
 
-    def _update_choices(self, other):
+    def _update_comparables(self, other):
         for k, v in other.items():
             if isinstance(v, Config):
-                self[k]._update_choices(v)
-            elif isinstance(self[k], Choices):
-                self[k] = v.default
+                self[k]._update_comparables(v)
+            elif isinstance(self[k], Comparable):
+                self[k] = v.data
 
     def update_config(self, other):
         newdict = Config(self)
@@ -360,8 +357,10 @@ class Config(dict):
                 elif isinstance(self[k], Choices):
                     if v not in self[k].choices:
                         raise InvalidChoiceError(f'{v} is not valid for {k}, valid choices: {self[k].choices}')
+                elif isinstance(self[k], Condition):
+                    newdict[k] = Condition(v, self[k].comp)
 
-        newdict._update_choices(self)
+        newdict._update_comparables(self)
         return newdict
 
 
