@@ -332,7 +332,8 @@ class Config(dict):
 
     def add(self, name, check=True):
         def _add(wrapped_class):
-            return self.add_config(wrapped_class, name, check)
+            self.add_config(wrapped_class, name, check)
+            return wrapped_class
         return _add
 
     def __call__(self, name, check=True):
