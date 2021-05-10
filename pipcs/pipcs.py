@@ -50,8 +50,8 @@ class Comparison():
         return self.comp(config)
 
 
-class Comparable():
-    def __init__(self, data):
+class Comparable(Generic[T]):
+    def __init__(self, data: T):
         self.data = data
 
     def _get_value(self, config):
